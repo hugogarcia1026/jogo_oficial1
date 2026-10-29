@@ -1,0 +1,44 @@
+
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compilar ECLIPSE 3D",
+            "type": "process",
+            "command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
+            "args": [
+                "-std=c++20",
+                "-Wall",
+                "-Wextra",
+                "-g",
+                "${workspaceFolder}\\src\\main.cpp",
+                "-o",
+                "${workspaceFolder}\\eclipse.exe",
+                "-I",
+                "C:\\msys64\\ucrt64\\include",
+                "-L",
+                "C:\\msys64\\ucrt64\\lib",
+                "-lraylib",
+                "-lopengl32",
+                "-lgdi32",
+                "-lwinmm"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "C:\\msys64\\ucrt64\\bin;C:\\msys64\\usr\\bin;${env:PATH}"
+                }
+            },
+            "problemMatcher": "$gcc",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        }
+    ]
+}
