@@ -87,292 +87,404 @@ void DesenharRuina(Vector3 posicao, Vector3 tamanho, Color cor) {
 }
 
 void DesenharChao() {
-    const Color terraEscura = {35, 34, 42, 255};
-    const Color terraMedia = {43, 41, 49, 255};
-    const Color pedraClara = {72, 68, 72, 255};
-    const Color pedraMedia = {57, 54, 61, 255};
-    const Color pedraEscura = {38, 37, 44, 255};
-    const Color violetaFraco = {83, 53, 112, 255};
+    const Color terraEscura = {31, 30, 39, 255};
+    const Color terraMedia = {39, 37, 46, 255};
+    const Color pedraClara = {83, 77, 79, 255};
+    const Color pedraMedia = {57, 54, 62, 255};
+    const Color pedraEscura = {35, 34, 42, 255};
+    const Color violetaFraco = {106, 62, 145, 255};
 
-    // Base do terreno.
+    // Base ampla do terreno.
     DrawPlane(
         {0.0f, -0.12f, 0.0f},
         {100.0f, 100.0f},
         terraEscura
     );
 
-    // Caminho antigo de pedra.
-    for (int i = 0; i < 34; ++i) {
-        float indice = static_cast<float>(i);
-        float z = 17.0f - indice * 1.45f;
-        float desvio = sinf(indice * 0.34f) * 0.65f;
-        float largura = 3.0f + sinf(indice * 0.71f) * 0.55f;
-        float altura = 0.10f + static_cast<float>(i % 3) * 0.025f;
+    // Grandes placas discretas na superfície.
+    for (int i = 0; i < 24; ++i) {
+        float x = static_cast<float>((i * 23) % 45) - 22.0f;
+        float z = static_cast<float>((i * 31) % 53) - 27.0f;
+        float w = 2.2f + static_cast<float>(i % 4) * 0.65f;
+        float d = 1.2f + static_cast<float>((i + 2) % 3) * 0.55f;
+        float rot = static_cast<float>((i * 29) % 50) - 25.0f;
 
-        Color cor = pedraMedia;
-
-        if (i % 5 == 0) {
-            cor = pedraClara;
-        } else if (i % 4 == 0) {
-            cor = pedraEscura;
-        }
-
-        DrawCubeV(
-            {desvio, -0.045f + altura * 0.5f, z},
-            {largura, altura, 1.35f},
-            cor
-        );
-
-        if (i % 3 == 0) {
-            DrawCubeV(
-                {desvio + largura * 0.28f, 0.015f, z + 0.25f},
-                {0.035f, 0.012f, 0.65f},
-                terraEscura
-            );
-        }
-    }
-
-    // Placas de pedra espalhadas pelo terreno.
-    for (int i = 0; i < 64; ++i) {
-        float x = static_cast<float>((i * 37) % 53) - 26.0f;
-        float z = static_cast<float>((i * 29) % 61) - 31.0f;
-
-        if (fabsf(x) < 2.2f && z > -24.0f && z < 16.0f) {
+        if (fabsf(x) < 2.6f && z > -25.0f && z < 15.0f) {
             continue;
         }
 
-        float largura = 0.45f + static_cast<float>(i % 4) * 0.24f;
-        float profundidade = 0.45f + static_cast<float>((i * 3) % 4) * 0.20f;
-        float altura = 0.08f + static_cast<float>(i % 3) * 0.055f;
-        float rotacao = static_cast<float>((i * 31) % 35) - 17.0f;
+        rlPushMatrix();
+        rlTranslatef(x, -0.055f, z);
+        rlRotatef(rot, 0.0f, 1.0f, 0.0f);
+
+        DrawCubeV(
+            {0.0f, 0.0f, 0.0f},
+            {w, 0.035f, d},
+            (i % 4 == 0) ? terraMedia : pedraEscura
+        );
+
+        rlPopMatrix();
+    }
+
+    // Caminho antigo até o colosso.
+    for (int i = 0; i < 32; ++i) {
+        float n = static_cast<float>(i);
+        float z = 16.0f - n * 1.42f;
+        float x = sinf(n * 0.31f) * 0.48f;
+        float largura = 2.65f + sinf(n * 0.77f) * 0.42f;
+        float altura = 0.09f + static_cast<float>(i % 3) * 0.025f;
+        float profundidade = 1.15f + static_cast<float>(i % 4) * 0.12f;
 
         Color cor = pedraMedia;
 
-        if (i % 7 == 0) {
+        if (i % 6 == 0) {
             cor = pedraClara;
         } else if (i % 5 == 0) {
             cor = pedraEscura;
         }
 
+        DrawCubeV(
+            {x, -0.035f + altura * 0.5f, z},
+            {largura, altura, profundidade},
+            cor
+        );
+
+        if (i % 3 == 1) {
+            DrawCubeV(
+                {x + largura * 0.22f, 0.018f, z + 0.23f},
+                {0.045f, 0.012f, 0.48f},
+                terraEscura
+            );
+        }
+    }
+
+    // Pedras soltas distribuídas pelo terreno.
+    for (int i = 0; i < 82; ++i) {
+        float x = static_cast<float>((i * 37) % 57) - 28.0f;
+        float z = static_cast<float>((i * 29) % 63) - 32.0f;
+
+        if (fabsf(x) < 2.0f && z > -25.0f && z < 15.0f) {
+            continue;
+        }
+
+        float w = 0.32f + static_cast<float>(i % 5) * 0.17f;
+        float d = 0.30f + static_cast<float>((i * 3) % 4) * 0.18f;
+        float h = 0.07f + static_cast<float>(i % 3) * 0.045f;
+        float rot = static_cast<float>((i * 17) % 70) - 35.0f;
+
+        Color cor = pedraMedia;
+
+        if (i % 9 == 0) {
+            cor = pedraClara;
+        } else if (i % 4 == 0) {
+            cor = pedraEscura;
+        }
+
         rlPushMatrix();
-        rlTranslatef(x, -0.02f + altura * 0.5f, z);
-        rlRotatef(rotacao, 0.0f, 1.0f, 0.0f);
+        rlTranslatef(x, -0.015f + h * 0.5f, z);
+        rlRotatef(rot, 0.0f, 1.0f, 0.0f);
 
         DrawCubeV(
             {0.0f, 0.0f, 0.0f},
-            {largura, altura, profundidade},
+            {w, h, d},
             cor
         );
 
         rlPopMatrix();
     }
 
-    // Rochas e destroços maiores.
-    for (int i = 0; i < 28; ++i) {
-        float x = static_cast<float>((i * 19) % 47) - 23.0f;
-        float z = static_cast<float>((i * 23) % 49) - 25.0f;
-
-        if (fabsf(x) < 2.8f && z > -23.0f && z < 15.0f) {
-            continue;
-        }
-
-        float tamanho = 0.35f + static_cast<float>(i % 4) * 0.18f;
-        float altura = 0.25f + static_cast<float>(i % 3) * 0.16f;
-        Color cor = (i % 4 == 0) ? pedraMedia : pedraEscura;
+    // Destroços maiores junto às laterais do caminho.
+    for (int i = 0; i < 22; ++i) {
+        float lado = (i % 2 == 0) ? -1.0f : 1.0f;
+        float x = lado * (3.2f + static_cast<float>((i * 7) % 14));
+        float z = 12.0f - static_cast<float>((i * 11) % 43);
+        float tamanho = 0.45f + static_cast<float>(i % 4) * 0.20f;
+        float altura = 0.22f + static_cast<float>(i % 3) * 0.15f;
 
         DrawCubeV(
             {x, altura * 0.5f - 0.015f, z},
-            {tamanho, altura, tamanho * 1.15f},
-            cor
+            {tamanho * 1.2f, altura, tamanho},
+            pedraEscura
         );
 
         if (i % 3 == 0) {
             DrawCubeV(
-                {x + tamanho * 0.65f, 0.035f, z + tamanho * 0.45f},
-                {tamanho * 1.25f, 0.07f, tamanho * 0.75f},
+                {x + lado * 0.32f, 0.06f, z - 0.25f},
+                {tamanho * 1.5f, 0.10f, tamanho * 0.72f},
                 pedraMedia
             );
         }
     }
 
-    // Fendas violetas antigas.
-    for (int i = 0; i < 10; ++i) {
+    // Fissuras violetas antigas.
+    for (int i = 0; i < 12; ++i) {
         float lado = (i % 2 == 0) ? -1.0f : 1.0f;
-        float x = lado * (3.5f + static_cast<float>((i * 7) % 12));
-        float z = 10.0f - static_cast<float>(i) * 4.1f;
-        float comprimento = 0.55f + static_cast<float>(i % 3) * 0.35f;
+        float x = lado * (3.5f + static_cast<float>((i * 5) % 13));
+        float z = 10.0f - static_cast<float>(i) * 3.5f;
+        float comprimento = 0.55f + static_cast<float>(i % 3) * 0.28f;
 
         DrawCubeV(
-            {x, -0.005f, z},
-            {0.045f, 0.018f, comprimento},
-            Fade(violetaFraco, 0.72f)
+            {x, -0.002f, z},
+            {0.045f, 0.016f, comprimento},
+            Fade(violetaFraco, 0.75f)
         );
 
         if (i % 2 == 0) {
             DrawCubeV(
-                {x + 0.12f, -0.004f, z + 0.18f},
-                {0.22f, 0.016f, 0.035f},
-                Fade(violetaFraco, 0.55f)
+                {x + 0.13f, 0.0f, z + 0.16f},
+                {0.25f, 0.014f, 0.035f},
+                Fade(violetaFraco, 0.58f)
             );
         }
-    }
-
-    // Fragmentos pequenos no solo.
-    for (int i = 0; i < 36; ++i) {
-        float x = static_cast<float>((i * 13) % 49) - 24.0f;
-        float z = static_cast<float>((i * 17) % 55) - 27.0f;
-
-        if (fabsf(x) < 2.0f && z > -22.0f && z < 14.0f) {
-            continue;
-        }
-
-        float escala = 0.12f + static_cast<float>(i % 4) * 0.07f;
-
-        DrawCubeV(
-            {x, -0.015f + escala * 0.25f, z},
-            {escala * 1.8f, escala * 0.5f, escala},
-            (i % 2 == 0) ? pedraMedia : terraMedia
-        );
     }
 }
 
 void DesenharRuinas() {
-    const Color pedra = {69, 65, 64, 255};
-    const Color pedraEscura = {43, 43, 48, 255};
-    const Color pedraClara = {91, 84, 80, 255};
-    const Color violeta = {103, 65, 145, 255};
+    const Color pedra = {72, 67, 66, 255};
+    const Color pedraEscura = {43, 42, 48, 255};
+    const Color pedraClara = {94, 86, 81, 255};
+    const Color pedraMedia = {59, 56, 61, 255};
+    const Color violeta = {124, 72, 171, 255};
 
-    // Colunatas principais à esquerda.
+    // Pórtico monumental ao fundo.
     DesenharRuina(
-        {-8.0f, 2.0f, -7.0f},
-        {1.8f, 4.0f, 1.8f},
-        pedra
-    );
-
-    DesenharRuina(
-        {-10.0f, 2.6f, -7.0f},
-        {1.8f, 5.2f, 1.8f},
+        {-6.2f, 3.0f, -13.0f},
+        {1.45f, 6.0f, 1.55f},
         pedraEscura
     );
 
     DesenharRuina(
-        {-8.0f, 4.2f, -7.0f},
-        {2.4f, 0.45f, 2.4f},
+        {6.2f, 3.0f, -13.0f},
+        {1.45f, 6.0f, 1.55f},
         pedra
     );
 
-    // Colunatas principais à direita.
     DesenharRuina(
-        {8.0f, 2.5f, -10.0f},
-        {1.8f, 5.0f, 1.8f},
+        {0.0f, 6.0f, -13.0f},
+        {13.5f, 1.05f, 1.8f},
         pedraEscura
     );
 
     DesenharRuina(
-        {10.0f, 1.7f, -10.0f},
-        {1.8f, 3.4f, 1.8f},
-        pedra
-    );
-
-    DesenharRuina(
-        {8.0f, 5.1f, -10.0f},
-        {2.2f, 0.4f, 2.2f},
-        pedra
-    );
-
-    // Muros desabados.
-    DesenharRuina(
-        {-5.0f, 1.0f, -15.0f},
-        {4.0f, 2.0f, 1.0f},
-        pedra
-    );
-
-    DesenharRuina(
-        {6.0f, 0.8f, 1.0f},
-        {3.0f, 1.6f, 1.4f},
-        pedraEscura
-    );
-
-    DesenharRuina(
-        {-13.0f, 1.0f, -18.0f},
-        {1.0f, 2.0f, 4.0f},
-        pedra
-    );
-
-    // Fragmentos de um arco antigo.
-    DesenharRuina(
-        {-3.9f, 3.0f, -12.0f},
-        {0.65f, 3.6f, 0.75f},
-        pedraEscura
-    );
-
-    DesenharRuina(
-        {-1.8f, 4.2f, -12.0f},
-        {0.65f, 1.2f, 0.75f},
-        pedra
-    );
-
-    DesenharRuina(
-        {-2.8f, 4.8f, -12.0f},
-        {2.5f, 0.55f, 0.85f},
+        {0.0f, 6.55f, -13.0f},
+        {10.8f, 0.24f, 1.9f},
         pedraClara
     );
 
-    // Coluna quebrada caída.
+    // Degraus largos conduzindo ao altar.
+    for (int i = 0; i < 5; ++i) {
+        float n = static_cast<float>(i);
+        float z = -10.2f - n * 0.78f;
+        float largura = 7.2f - n * 0.48f;
+
+        DesenharRuina(
+            {0.0f, 0.12f + n * 0.12f, z},
+            {largura, 0.24f, 0.95f},
+            (i % 2 == 0) ? pedraMedia : pedra
+        );
+    }
+
+    // Colunas laterais esquerdas.
+    DesenharRuina(
+        {-9.0f, 1.9f, -7.0f},
+        {1.55f, 3.8f, 1.55f},
+        pedra
+    );
+
+    DesenharRuina(
+        {-9.0f, 3.95f, -7.0f},
+        {2.0f, 0.38f, 2.0f},
+        pedraClara
+    );
+
+    DesenharRuina(
+        {-11.5f, 1.2f, -9.5f},
+        {1.35f, 2.4f, 1.35f},
+        pedraEscura
+    );
+
+    DesenharRuina(
+        {-11.5f, 2.55f, -9.5f},
+        {1.75f, 0.32f, 1.75f},
+        pedra
+    );
+
+    // Colunas laterais direitas.
+    DesenharRuina(
+        {9.0f, 2.5f, -8.5f},
+        {1.55f, 5.0f, 1.55f},
+        pedraEscura
+    );
+
+    DesenharRuina(
+        {9.0f, 5.15f, -8.5f},
+        {2.0f, 0.38f, 2.0f},
+        pedraClara
+    );
+
+    DesenharRuina(
+        {11.5f, 1.45f, -11.0f},
+        {1.35f, 2.9f, 1.35f},
+        pedra
+    );
+
+    DesenharRuina(
+        {11.5f, 3.05f, -11.0f},
+        {1.75f, 0.32f, 1.75f},
+        pedraEscura
+    );
+
+    // Pilares partidos e paredes incompletas.
+    DesenharRuina(
+        {-15.0f, 1.0f, -17.0f},
+        {1.0f, 2.0f, 4.5f},
+        pedraEscura
+    );
+
+    DesenharRuina(
+        {-13.8f, 1.55f, -18.4f},
+        {3.1f, 0.55f, 1.0f},
+        pedra
+    );
+
+    DesenharRuina(
+        {15.0f, 0.85f, -17.5f},
+        {1.0f, 1.7f, 4.0f},
+        pedra
+    );
+
+    DesenharRuina(
+        {13.7f, 1.45f, -16.2f},
+        {3.0f, 0.5f, 1.0f},
+        pedraEscura
+    );
+
+    // Arco quebrado à esquerda do caminho.
+    DesenharRuina(
+        {-4.2f, 2.1f, -11.7f},
+        {0.72f, 4.2f, 0.82f},
+        pedraEscura
+    );
+
+    DesenharRuina(
+        {-1.7f, 2.8f, -11.7f},
+        {0.72f, 5.6f, 0.82f},
+        pedra
+    );
+
+    DesenharRuina(
+        {-3.0f, 5.55f, -11.7f},
+        {3.0f, 0.62f, 0.95f},
+        pedraClara
+    );
+
+    // Muralhas caídas nas laterais, mantendo o centro livre.
+    DesenharRuina(
+        {-7.0f, 0.75f, -2.0f},
+        {4.2f, 1.5f, 1.0f},
+        pedraEscura
+    );
+
+    DesenharRuina(
+        {7.0f, 0.65f, -1.0f},
+        {3.6f, 1.3f, 1.2f},
+        pedra
+    );
+
+    DesenharRuina(
+        {-14.0f, 0.65f, -4.5f},
+        {3.8f, 1.3f, 1.1f},
+        pedraMedia
+    );
+
+    DesenharRuina(
+        {14.0f, 0.8f, -5.0f},
+        {3.5f, 1.6f, 1.0f},
+        pedraEscura
+    );
+
+    // Coluna tombada à direita.
     rlPushMatrix();
-    rlTranslatef(11.5f, 0.55f, -3.0f);
-    rlRotatef(18.0f, 0.0f, 0.0f, 1.0f);
+    rlTranslatef(10.7f, 0.48f, -3.0f);
+    rlRotatef(17.0f, 0.0f, 0.0f, 1.0f);
 
     DrawCubeV(
         {0.0f, 0.0f, 0.0f},
-        {3.2f, 0.75f, 0.85f},
+        {3.7f, 0.72f, 0.82f},
         pedraEscura
     );
 
     DrawCubeWiresV(
         {0.0f, 0.0f, 0.0f},
-        {3.2f, 0.75f, 0.85f},
-        Fade(BLACK, 0.3f)
+        {3.7f, 0.72f, 0.82f},
+        Fade(BLACK, 0.28f)
     );
 
     rlPopMatrix();
 
-    // Blocos menores junto às estruturas.
-    for (int i = 0; i < 14; ++i) {
-        float x = static_cast<float>((i * 11) % 25) - 12.0f;
-        float z = -4.0f - static_cast<float>((i * 7) % 17);
-        float tamanho = 0.35f + static_cast<float>(i % 3) * 0.18f;
-        float altura = 0.25f + static_cast<float>(i % 4) * 0.12f;
+    // Outra coluna tombada à esquerda.
+    rlPushMatrix();
+    rlTranslatef(-10.0f, 0.38f, 3.2f);
+    rlRotatef(-12.0f, 0.0f, 0.0f, 1.0f);
 
-        if (fabsf(x) < 2.8f) {
-            x += (x < 0.0f) ? -3.0f : 3.0f;
-        }
+    DrawCubeV(
+        {0.0f, 0.0f, 0.0f},
+        {2.8f, 0.58f, 0.75f},
+        pedraMedia
+    );
+
+    rlPopMatrix();
+
+    // Blocos menores agrupados junto às estruturas.
+    for (int i = 0; i < 20; ++i) {
+        float lado = (i % 2 == 0) ? -1.0f : 1.0f;
+        float x = lado * (7.0f + static_cast<float>((i * 7) % 9));
+        float z = -4.0f - static_cast<float>((i * 11) % 17);
+        float tamanho = 0.38f + static_cast<float>(i % 3) * 0.19f;
+        float altura = 0.25f + static_cast<float>(i % 4) * 0.13f;
 
         DrawCubeV(
             {x, altura * 0.5f, z},
-            {tamanho * 1.4f, altura, tamanho},
-            (i % 2 == 0) ? pedra : pedraEscura
+            {tamanho * 1.35f, altura, tamanho},
+            (i % 3 == 0) ? pedraClara : pedraEscura
         );
     }
 
-    // Marcas violetas nas bases das estruturas.
+    // Runas violetas nas bases das colunas.
     DrawCubeV(
-        {-8.0f, 0.22f, -5.98f},
-        {0.08f, 0.035f, 0.48f},
-        Fade(violeta, 0.85f)
+        {-9.0f, 0.20f, -6.18f},
+        {0.07f, 0.035f, 0.55f},
+        Fade(violeta, 0.9f)
     );
 
     DrawCubeV(
-        {8.0f, 0.22f, -8.98f},
-        {0.08f, 0.035f, 0.48f},
-        Fade(violeta, 0.85f)
+        {9.0f, 0.20f, -7.68f},
+        {0.07f, 0.035f, 0.55f},
+        Fade(violeta, 0.9f)
     );
 
     DrawCubeV(
-        {-5.0f, 0.18f, -14.45f},
+        {-6.2f, 0.22f, -12.15f},
         {0.55f, 0.025f, 0.06f},
-        Fade(violeta, 0.65f)
+        Fade(violeta, 0.7f)
     );
+
+    DrawCubeV(
+        {6.2f, 0.22f, -12.15f},
+        {0.55f, 0.025f, 0.06f},
+        Fade(violeta, 0.7f)
+    );
+
+    // Marcas discretas nos degraus.
+    for (int i = 0; i < 5; ++i) {
+        float z = -10.2f - static_cast<float>(i) * 0.78f;
+
+        DrawCubeV(
+            {0.0f, 0.255f + static_cast<float>(i) * 0.12f, z},
+            {0.75f, 0.018f, 0.035f},
+            Fade(violeta, 0.48f)
+        );
+    }
 }
 
 // ============================================================
@@ -526,7 +638,6 @@ void DesenharColosso(Vector3 base, float tempo) {
 void DesenharJogador(const Jogador &j, float tempo) {
     float passo = sinf(j.fasePassos) * j.intensidadeMovimento;
     float passoOposto = sinf(j.fasePassos + PI) * j.intensidadeMovimento;
-
     float saltoVisual = 0.0f;
 
     if (j.intensidadeMovimento > 0.05f) {
@@ -765,7 +876,6 @@ void DesenharBarraHUD(
     }
 }
 
-// Mira central discreta, em violeta.
 void DesenharMiraHUD() {
     const int cx = LARGURA / 2;
     const int cy = ALTURA / 2;
@@ -798,7 +908,6 @@ void DesenharHUD(
     Color secundario = {165, 165, 184, 255};
     Color violeta = CorVioleta();
 
-    // Sombras para melhorar a leitura da interface.
     DrawRectangleGradientV(
         0, 0, LARGURA, 132,
         Fade(BLACK, 0.82f),
@@ -821,11 +930,10 @@ void DesenharHUD(
     DrawText("ECOS DOS COLOSSOS", 103, 55, 12, secundario);
     DrawText("CAPITULO I  /  VALE DAS RUINAS", 103, 79, 12, GOLD);
 
-    // Painel de resistência e esquiva.
+    // Resistência e esquiva.
     DesenharPainel(24, 112, 292, 112);
 
     DrawText("RESISTENCIA", 43, 127, 11, secundario);
-
     DrawText(
         TextFormat("%03i", static_cast<int>(j.resistencia)),
         264, 125, 16, branco
@@ -835,11 +943,7 @@ void DesenharHUD(
         ? Color{225, 74, 83, 255}
         : violeta;
 
-    DesenharBarraHUD(
-        43, 148, 246, 11,
-        j.resistencia, corResistencia
-    );
-
+    DesenharBarraHUD(43, 148, 246, 11, j.resistencia, corResistencia);
     DrawText("ESQUIVA SOMBRIA", 43, 173, 11, secundario);
 
     if (esquivando) {
@@ -862,11 +966,9 @@ void DesenharHUD(
     );
 
     DrawLine(455, 48, 825, 48, Fade(RAYWHITE, 0.45f));
-
     DrawText("O", 470, 30, 11, secundario);
     DrawText("N", 633, 28, 13, branco);
     DrawText("L", 784, 30, 11, secundario);
-
     DrawPoly({640, 48}, 3, 8, 0.0f, GOLD);
     DrawText("VALE DAS RUINAS", 568, 79, 11, branco);
 
@@ -876,7 +978,6 @@ void DesenharHUD(
     DrawText("PRESENCA DETECTADA", 951, 33, 10, secundario);
     DrawText("AZH'KHAR", 951, 49, 23, branco);
     DrawText("O COLOSSO ADORMECIDO", 952, 77, 11, {216, 171, 132, 255});
-
     DrawRectangle(951, 101, 281, 3, Fade(GOLD, 0.75f));
 
     if (distanciaColosso < 32.0f) {
@@ -886,14 +987,13 @@ void DesenharHUD(
         DrawCircle(1232, 41, 4, {120, 190, 150, 255});
     }
 
-    // Objetivo da exploração.
+    // Objetivo atual.
     DesenharPainel(LARGURA - 284, 145, 260, 86);
-
     DrawText("◇  OBJETIVO ATUAL", LARGURA - 263, 158, 12, GOLD);
     DrawText("Explore as ruinas antigas", LARGURA - 263, 181, 12, branco);
     DrawText("e descubra o eco.", LARGURA - 263, 200, 12, secundario);
 
-    // Estado e comandos de movimento.
+    // Estado e comandos.
     DesenharPainel(24, ALTURA - 112, 292, 84);
 
     const char *estado = "EM ALERTA";
@@ -907,7 +1007,6 @@ void DesenharHUD(
     }
 
     DrawText("ESTADO", 43, ALTURA - 96, 10, secundario);
-
     DrawText(
         estado, 43, ALTURA - 78, 16,
         esquivando ? Color{219, 168, 255, 255} : branco
@@ -918,7 +1017,7 @@ void DesenharHUD(
     DrawText("SHIFT", 151, ALTURA - 51, 11, GOLD);
     DrawText("Correr", 197, ALTURA - 51, 11, secundario);
 
-    // Controles de esquiva e câmera.
+    // Esquiva e câmera.
     DesenharPainel(LARGURA - 284, ALTURA - 112, 260, 84);
 
     DrawRectangleRounded(
@@ -936,11 +1035,7 @@ void DesenharHUD(
     DrawText("SPACE", LARGURA - 261, ALTURA - 84, 9, branco);
     DrawText("Esquiva", LARGURA - 224, ALTURA - 88, 12, branco);
     DrawText("Q / E", LARGURA - 263, ALTURA - 55, 11, GOLD);
-
-    DrawText(
-        "Camera | Roda: zoom",
-        LARGURA - 218, ALTURA - 55, 11, secundario
-    );
+    DrawText("Camera | Roda: zoom", LARGURA - 218, ALTURA - 55, 11, secundario);
 
     DrawText(
         "ALFA DE DESENVOLVIMENTO",
@@ -948,7 +1043,6 @@ void DesenharHUD(
         Fade(secundario, 0.72f)
     );
 
-    // Mira desenhada por último para permanecer visível.
     DesenharMiraHUD();
 }
 
@@ -1050,7 +1144,6 @@ int main() {
         }
 
         bool esquivando = jogador.tempoEsquiva > 0.0f;
-
         float intensidadeDestino = 0.0f;
 
         if (movendo) {
@@ -1221,7 +1314,6 @@ int main() {
 
         EndMode3D();
 
-        // Interface 2D independente da câmera.
         DesenharHUD(
             jogador,
             movendo,
