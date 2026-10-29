@@ -21,7 +21,7 @@ inline void DesenharAtmosfera(Vector3 centroMundo, Vector3 jogador, float tempo)
         const float variacao = std::sin(i * 2.17f) * 3.0f
                              + std::cos(i * 0.73f) * 2.0f;
 
-        const float distancia = 92.0f + std::sin(i * 1.31f) * 5.0f;
+        const float distancia = 230.0f + std::sin(i * 1.31f) * 7.0f;
         const float altura = 12.0f + variacao;
         const float x = centroMundo.x + std::cos(angulo) * distancia;
         const float z = centroMundo.z + std::sin(angulo) * distancia;
@@ -31,7 +31,7 @@ inline void DesenharAtmosfera(Vector3 centroMundo, Vector3 jogador, float tempo)
             0.0f,
             8.0f + std::fmod(static_cast<float>(i * 7), 5.0f),
             altura,
-            6,
+            16,
             fundo);
     }
 
@@ -39,7 +39,7 @@ inline void DesenharAtmosfera(Vector3 centroMundo, Vector3 jogador, float tempo)
     for (int i = 0; i < 32; ++i)
     {
         const float angulo = (2.0f * PI_LOCAL * (i + 0.45f)) / 32.0f;
-        const float distancia = 78.0f + std::sin(i * 1.9f) * 7.0f;
+        const float distancia = 205.0f + std::sin(i * 1.9f) * 9.0f;
         const float altura = 7.0f + std::fmod(
             static_cast<float>(i * 13), 8.0f);
 
@@ -51,7 +51,7 @@ inline void DesenharAtmosfera(Vector3 centroMundo, Vector3 jogador, float tempo)
             0.0f,
             6.0f + std::fmod(static_cast<float>(i * 3), 4.0f),
             altura,
-            7,
+            16,
             meio);
     }
 

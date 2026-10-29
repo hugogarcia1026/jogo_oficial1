@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <cstdio>
 
 // ============================================================
 // ECLIPSE: ECOS DOS COLOSSOS
@@ -53,6 +54,7 @@ struct Jogador {
     float tempoAtaque = 0.0f;
     float recargaAtaque = 0.0f;
     bool ataqueAcertou = false;
+    bool ataqueImpactoResolvido = false;
     float invulnerabilidade = 0.0f;
 };
 
@@ -62,6 +64,8 @@ struct Colosso {
     float tempoAtaque = 0.0f;
     float recargaAtaque = 2.5f;
     float tempoDano = 0.0f;
+    int tipoAtaque = 0;
+    bool ataqueResolvido = false;
     float tempoDespertar = 0.0f;
     bool despertado = false;
     bool derrotado = false;
@@ -70,6 +74,11 @@ struct Colosso {
 struct Assets {
     Model modeloJogador = {};
     Model modeloColosso = {};
+
+    static constexpr int QUANTIDADE_MODELOS_AMBIENTE = 16;
+    Model modelosAmbiente[QUANTIDADE_MODELOS_AMBIENTE] = {};
+    bool temModeloAmbiente[QUANTIDADE_MODELOS_AMBIENTE] = {};
+
     Texture2D texturaPedra = {};
     Sound somAtaque = {};
     Sound somImpacto = {};
@@ -162,6 +171,35 @@ void DesenharBarra(int x, int y, int largura, int altura,
 // ============================================================
 
 void CarregarAssets(Assets &a) {
+    const char *caminhosAmbiente[Assets::QUANTIDADE_MODELOS_AMBIENTE] = {
+        "assets/models/environment/Rock001.glb",
+        "assets/models/environment/Rock002.glb",
+        "assets/models/environment/Rock003.glb",
+        "assets/models/environment/Cliff001.glb",
+        "assets/models/environment/Cliff002.glb",
+        "assets/models/environment/Cliff003.glb",
+        "assets/models/environment/TreeLow001.glb",
+        "assets/models/environment/TreeMed001.glb",
+        "assets/models/environment/Bush001.glb",
+        "assets/models/environment/MountainFar001.glb",
+        "assets/models/environment/MountainFar002.glb",
+        "assets/models/environment/MountainFar003.glb",
+        "assets/models/environment/Mountain001.glb",
+        "assets/models/environment/Mountain002.glb",
+        "assets/models/environment/Mountain003.glb"
+    };
+
+    for (int i = 0; i < Assets::QUANTIDADE_MODELOS_AMBIENTE; i++) {
+        if (FileExists(caminhosAmbiente[i])) {
+            a.modelosAmbiente[i] = LoadModel(caminhosAmbiente[i]);
+            a.temModeloAmbiente[i] = a.modelosAmbiente[i].meshCount > 0;
+
+            if (!a.temModeloAmbiente[i]) {
+                TraceLog(LOG_WARNING, "Modelo ambiental invalido: %s", caminhosAmbiente[i]);
+            }
+        }
+    }
+
     // Modelos sugeridos:
     // assets/models/jogador.glb
     // assets/models/azhkhar.glb
@@ -211,6 +249,13 @@ void CarregarAssets(Assets &a) {
 }
 
 void DescarregarAssets(Assets &a) {
+    for (int i = 0; i < Assets::QUANTIDADE_MODELOS_AMBIENTE; i++) {
+        if (a.temModeloAmbiente[i]) {
+            UnloadModel(a.modelosAmbiente[i]);
+            a.temModeloAmbiente[i] = false;
+        }
+    }
+
     if (a.temModeloJogador) UnloadModel(a.modeloJogador);
     if (a.temModeloColosso) UnloadModel(a.modeloColosso);
     if (a.temTexturaPedra) UnloadTexture(a.texturaPedra);
@@ -349,6 +394,78 @@ void DesenharRuina(Vector3 posicao, Vector3 tamanho, Color cor) {
     DrawCubeWiresV(posicao, tamanho, Fade(BLACK, 0.25f));
 }
 
+float AlturaTerrenoProcedural(float x, float z) {
+
+
+    // Ondulacoes suaves em todo o mundo.
+    float ondulacao =
+        sinf(x * 0.075f) * cosf(z * 0.065f) * 0.55f +
+        sinf((x + z) * 0.043f) * 0.35f +
+        cosf((x - z) * 0.052f) * 0.22f;
+
+    // Colinas largas, posicionadas para deixar o centro exploravel.
+    auto colina = [](float px, float pz, float cx, float cz,
+                     float raioX, float raioZ, float altura) {
+        float dx = (px - cx) / raioX;
+        float dz = (pz - cz) / raioZ;
+        return altura * expf(-(dx * dx + dz * dz));
+    };
+
+    float relevo =
+        colina(x, z, -31.0f, -28.0f, 18.0f, 23.0f, 5.0f) +
+        colina(x, z,  34.0f, -32.0f, 22.0f, 18.0f, 6.0f) +
+        colina(x, z, -39.0f,  13.0f, 20.0f, 24.0f, 4.5f) +
+        colina(x, z,  38.0f,  24.0f, 24.0f, 21.0f, 5.5f) +
+        colina(x, z,   0.0f, -58.0f, 35.0f, 19.0f, 4.0f);
+
+    // A arena fica perto do nivel original, mas nao totalmente plana.
+    float dxArena = x / 15.0f;
+    float dzArena = (z + 8.0f) / 23.0f;
+    float distanciaArena = dxArena * dxArena + dzArena * dzArena;
+    float protecaoArena = 0.22f + 0.78f *
+        (1.0f - expf(-distanciaArena * 1.8f));
+
+    float altura = ondulacao * protecaoArena + relevo;
+
+    // Pequenas variacoes suaves dentro da area de combate.
+    float ondulacaoArena =
+        0.10f * sinf(x * 0.31f) * cosf(z * 0.27f);
+    altura += ondulacaoArena *
+        expf(-distanciaArena * 0.75f);
+
+    return altura;
+}
+
+void DesenharTerrenoProcedural() {
+    const float inicio = -90.0f;
+    const float fim = 90.0f;
+    const float passo = 1.5f;
+
+    const Color terraBaixa = {34, 32, 40, 255};
+    const Color terraAlta = {55, 49, 54, 255};
+    const Color rocha = {75, 68, 69, 255};
+
+    for (float x = inicio; x < fim; x += passo) {
+        for (float z = inicio; z < fim; z += passo) {
+            Vector3 a = {x, AlturaTerrenoProcedural(x, z), z};
+            Vector3 b = {x + passo, AlturaTerrenoProcedural(x + passo, z), z};
+            Vector3 c = {x, AlturaTerrenoProcedural(x, z + passo), z + passo};
+            Vector3 d = {x + passo, AlturaTerrenoProcedural(x + passo, z + passo), z + passo};
+
+            float alturaMedia = (a.y + b.y + c.y + d.y) * 0.25f;
+            Color cor = terraBaixa;
+
+            if (alturaMedia > 2.5f) {
+                cor = rocha;
+            } else if (alturaMedia > 0.8f) {
+                cor = terraAlta;
+            }
+
+            DrawTriangle3D(a, c, b, cor);
+            DrawTriangle3D(b, c, d, cor);
+        }
+    }
+}
 void DesenharChao() {
     const Color terraEscura = {31, 30, 39, 255};
     const Color terraMedia = {39, 37, 46, 255};
@@ -357,7 +474,9 @@ void DesenharChao() {
     const Color pedraEscura = {35, 34, 42, 255};
     const Color violetaFraco = {106, 62, 145, 255};
 
-    DrawPlane({0.0f, -0.12f, 0.0f}, {100.0f, 100.0f}, terraEscura);
+    DrawPlane({0.0f, -0.12f, 0.0f}, {220.0f, 220.0f}, terraEscura);
+
+    DesenharTerrenoProcedural();
 
     for (int i = 0; i < 24; ++i) {
         float x = (float)((i * 23) % 45) - 22.0f;
@@ -523,8 +642,39 @@ void DesenharRuinas() {
 // AZH'KHAR
 // ============================================================
 
+void DesenharTelegraph(Vector3 centro, float raio, Color cor, float tempo) {
+    const int segmentos = 48;
+    float pulsacao = 0.88f + 0.12f * sinf(tempo * 14.0f);
+    raio *= pulsacao;
+
+    for (int i = 0; i < segmentos; ++i) {
+        float a1 = (float)i / (float)segmentos * 2.0f * PI;
+        float a2 = (float)(i + 1) / (float)segmentos * 2.0f * PI;
+
+        Vector3 p1 = {
+            centro.x + cosf(a1) * raio, centro.y + 0.06f,
+            centro.z + sinf(a1) * raio
+        };
+        Vector3 p2 = {
+            centro.x + cosf(a2) * raio, centro.y + 0.06f,
+            centro.z + sinf(a2) * raio
+        };
+
+        DrawLine3D(p1, p2, cor);
+    }
+}
 void DesenharColossoProcedural(const Colosso &c, float tempo) {
     Vector3 base = c.posicao;
+    // ECLIPSE_COMBATE_FEEDBACK_V2: zona de perigo antes do impacto.
+    if (c.despertado && !c.derrotado && c.tempoAtaque > 0.0f) {
+        float raioAviso = c.tipoAtaque == 2 ? 7.5f :
+                          (c.tipoAtaque == 1 ? 3.2f : 4.5f);
+        float urgencia = 1.0f - Clamp(c.tempoAtaque / 1.2f, 0.0f, 1.0f);
+        Color corAviso = c.tipoAtaque == 2
+            ? Color{210, 65, 255, (unsigned char)(130 + 100 * urgencia)}
+            : Color{255, 95, 65, (unsigned char)(130 + 100 * urgencia)};
+        DesenharTelegraph(c.posicao, raioAviso, corAviso, tempo);
+    }
     float despertar = c.despertado ? 1.0f : 0.0f;
     float respiracao = sinf(tempo * (c.despertado ? 2.0f : 0.8f)) * 0.10f;
     float balanco = c.despertado ? sinf(tempo * 1.3f) * 0.18f : sinf(tempo * 0.35f) * 0.12f;
@@ -577,6 +727,90 @@ void DesenharColossoProcedural(const Colosso &c, float tempo) {
     (void)despertar;
 }
 
+// ============================================================
+// AMBIENTE 3D EXTERNO
+// ============================================================
+
+void DesenharModeloAmbiente(
+    const Assets &a, int indice, Vector3 posicao,
+    float rotacaoY, float escala, Color cor = WHITE
+) {
+    if (indice < 0 ||
+        indice >= Assets::QUANTIDADE_MODELOS_AMBIENTE ||
+        !a.temModeloAmbiente[indice]) {
+        return;
+    }
+
+    Vector3 posicaoAjustada = posicao;
+    BoundingBox caixaModelo = GetModelBoundingBox(a.modelosAmbiente[indice]);
+
+    posicaoAjustada.y =
+        AlturaTerrenoProcedural(posicao.x, posicao.z)
+        - caixaModelo.min.y * escala;
+
+    DrawModelEx(
+        a.modelosAmbiente[indice],
+        posicaoAjustada,
+        {0.0f, 1.0f, 0.0f},
+        rotacaoY,
+        {escala, escala, escala},
+        cor
+    );
+}
+
+void DesenharAmbiente(const Assets &a) {
+    // ========================================================
+    // ROCHAS: distribuidas nas laterais, sem fechar a arena
+    // ========================================================
+    DesenharModeloAmbiente(a, 0, {-12.0f, 0.0f,  5.0f},  18.0f, 1.6f);
+    DesenharModeloAmbiente(a, 1, { 13.0f, 0.0f,  2.0f},  72.0f, 1.8f);
+    DesenharModeloAmbiente(a, 2, {-14.0f, 0.0f, -5.0f}, 135.0f, 1.7f);
+    DesenharModeloAmbiente(a, 0, { 14.0f, 0.0f,-10.0f}, 210.0f, 1.8f);
+
+    DesenharModeloAmbiente(a, 1, {-18.0f, 0.0f,  1.0f},  45.0f, 1.5f);
+    DesenharModeloAmbiente(a, 2, { 18.0f, 0.0f, -5.0f}, 110.0f, 1.6f);
+    DesenharModeloAmbiente(a, 0, {-17.0f, 0.0f,-19.0f}, 250.0f, 1.7f);
+    DesenharModeloAmbiente(a, 1, { 17.0f, 0.0f,-21.0f}, 320.0f, 1.8f);
+
+    // ========================================================
+    // PENHASCOS: criam uma moldura natural ao redor do mapa
+    // ========================================================
+    DesenharModeloAmbiente(a, 3, {-23.0f, 0.0f, -12.0f},  15.0f, 2.6f);
+    DesenharModeloAmbiente(a, 4, { 24.0f, 0.0f, -15.0f}, 195.0f, 2.6f);
+    DesenharModeloAmbiente(a, 5, {-25.0f, 0.0f,   5.0f},  80.0f, 2.3f);
+    DesenharModeloAmbiente(a, 3, { 25.0f, 0.0f,   7.0f}, 160.0f, 2.4f);
+
+    // ========================================================
+    // VEGETACAO: grupos nas laterais e no fundo
+    // ========================================================
+    DesenharModeloAmbiente(a, 6, {-15.0f, 0.0f,  11.0f},  25.0f, 2.0f);
+    DesenharModeloAmbiente(a, 7, { 16.0f, 0.0f,   9.0f}, 155.0f, 2.1f);
+    DesenharModeloAmbiente(a, 8, { -9.0f, 0.0f,  14.0f},  45.0f, 1.7f);
+    DesenharModeloAmbiente(a, 8, { 10.0f, 0.0f,  13.0f}, 225.0f, 1.8f);
+
+    DesenharModeloAmbiente(a, 6, {-19.0f, 0.0f,  -3.0f},  85.0f, 1.8f);
+    DesenharModeloAmbiente(a, 7, { 20.0f, 0.0f,  -7.0f}, 235.0f, 1.9f);
+    DesenharModeloAmbiente(a, 8, {-16.0f, 0.0f, -23.0f}, 125.0f, 1.6f);
+    DesenharModeloAmbiente(a, 8, { 15.0f, 0.0f, -25.0f}, 305.0f, 1.7f);
+
+    // ========================================================
+    // MONTANHAS DISTANTES: ampliam a escala visual do mundo
+    // ========================================================
+    DesenharModeloAmbiente(a, 9, {-38.0f, 0.0f, -34.0f},  10.0f, 4.0f);
+    DesenharModeloAmbiente(a, 9, { 38.0f, 0.0f, -36.0f}, 170.0f, 4.0f);
+    DesenharModeloAmbiente(a, 9, {-42.0f, 0.0f,   8.0f},  35.0f, 3.5f);
+    DesenharModeloAmbiente(a, 9, { 42.0f, 0.0f,  10.0f}, 145.0f, 3.5f);
+
+    // Camada adicional de montanhas: horizonte em varias direcoes.
+    DesenharModeloAmbiente(a, 10, {-48.0f, 0.0f, -38.0f},  25.0f, 4.0f);
+    DesenharModeloAmbiente(a, 11, {-22.0f, 0.0f, -48.0f},  70.0f, 4.5f);
+    DesenharModeloAmbiente(a, 12, { 18.0f, 0.0f, -50.0f}, 125.0f, 4.0f);
+    DesenharModeloAmbiente(a, 13, { 48.0f, 0.0f, -35.0f}, 180.0f, 4.5f);
+    DesenharModeloAmbiente(a, 14, { 50.0f, 0.0f,   5.0f}, 230.0f, 4.0f);
+    DesenharModeloAmbiente(a, 12, { 25.0f, 0.0f,  42.0f}, 280.0f, 4.5f);
+    DesenharModeloAmbiente(a, 12, {-20.0f, 0.0f,  45.0f}, 315.0f, 4.0f);
+    DesenharModeloAmbiente(a, 13, {-50.0f, 0.0f,   8.0f},  45.0f, 4.5f);
+}
 void DesenharColosso(const Colosso &c, float tempo, const Assets &assets) {
     if (assets.temModeloColosso) {
         DrawModelEx(
@@ -814,6 +1048,7 @@ int main() {
     float rotacaoCamera = 0.0f;
     float distanciaCamera = 15.0f;
     float mensagemTempo = 0.0f;
+    float tempoTremorCamera = 0.0f; // ECLIPSE_COMBATE_FEEDBACK_V2
     char mensagem[128] = "O silencio das ruinas esconde algo antigo.";
 
     while (!WindowShouldClose()) {
@@ -821,6 +1056,7 @@ int main() {
         if (dt > 0.05f) dt = 0.05f;
         tempo += dt;
         mensagemTempo = fmaxf(0.0f, mensagemTempo - dt);
+        tempoTremorCamera = fmaxf(0.0f, tempoTremorCamera - dt);
 
         bool jogoAtivo = jogador.vida > 0.0f && !azhkhar.derrotado;
 
@@ -916,8 +1152,9 @@ int main() {
                 jogador.rotacao = SuavizarAngulo(jogador.rotacao, destino, 10.0f, dt);
             }
 
-            jogador.posicao.x = Clamp(jogador.posicao.x, -25.0f, 25.0f);
-            jogador.posicao.z = Clamp(jogador.posicao.z, -28.0f, 20.0f);
+            jogador.posicao.x = Clamp(jogador.posicao.x, -85.0f, 85.0f);
+            jogador.posicao.z = Clamp(jogador.posicao.z, -85.0f, 85.0f);
+            jogador.posicao.y = AlturaTerrenoProcedural(jogador.posicao.x, jogador.posicao.z);
 
             float distanciaColosso = DistanciaXZ(jogador.posicao, azhkhar.posicao);
             bool pertoAltar = DistanciaXZ(jogador.posicao, {0.0f, 0.0f, -9.0f}) < ALCANCE_INTERACAO;
@@ -936,7 +1173,7 @@ int main() {
                 azhkhar.tempoDespertar = fmaxf(0.0f, azhkhar.tempoDespertar - dt);
             }
 
-            // ATAQUE DO JOGADOR: botao esquerdo do mouse.
+            // ATAQUE DO JOGADOR: prepara, atinge e recupera.
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
                 jogador.recargaAtaque <= 0.0f &&
                 jogador.tempoAtaque <= 0.0f) {
@@ -944,12 +1181,25 @@ int main() {
                 jogador.tempoAtaque = TEMPO_ATAQUE;
                 jogador.recargaAtaque = RECARGA_ATAQUE;
                 jogador.ataqueAcertou = false;
+                jogador.ataqueImpactoResolvido = false;
 
                 if (assets.temSomAtaque) PlaySound(assets.somAtaque);
+            }
+
+            // IMPACTO: resolve o golpe uma única vez, na metade da animação.
+            if (jogador.tempoAtaque > 0.0f &&
+                jogador.tempoAtaque <= TEMPO_ATAQUE * 0.5f &&
+                !jogador.ataqueImpactoResolvido) {
+
+                jogador.ataqueImpactoResolvido = true;
 
                 Vector3 frente = Frente(jogador.rotacao);
-                Vector3 vetorColosso = Vector3Subtract(azhkhar.posicao, jogador.posicao);
-                float distancia = DistanciaXZ(jogador.posicao, azhkhar.posicao);
+                Vector3 vetorColosso = Vector3Subtract(
+                    azhkhar.posicao, jogador.posicao
+                );
+                float distancia = DistanciaXZ(
+                    jogador.posicao, azhkhar.posicao
+                );
 
                 if (azhkhar.despertado && !azhkhar.derrotado &&
                     distancia <= ALCANCE_ATAQUE + 1.0f) {
@@ -957,60 +1207,162 @@ int main() {
                     Vector3 direcaoAlvo = Vector3Normalize(
                         {vetorColosso.x, 0.0f, vetorColosso.z}
                     );
-                    float alinhamento = Vector3DotProduct(frente, direcaoAlvo);
+                    float alinhamento = Vector3DotProduct(
+                        frente, direcaoAlvo
+                    );
 
                     if (alinhamento > 0.20f) {
-                        azhkhar.vida = fmaxf(0.0f, azhkhar.vida - DANO_ATAQUE);
+                        azhkhar.vida = fmaxf(
+                            0.0f, azhkhar.vida - DANO_ATAQUE
+                        );
                         azhkhar.tempoDano = 0.22f;
+                        tempoTremorCamera = fmaxf(tempoTremorCamera, 0.10f);
                         jogador.ataqueAcertou = true;
 
-                        if (assets.temSomImpacto) PlaySound(assets.somImpacto);
+                        if (assets.temSomImpacto) {
+                            PlaySound(assets.somImpacto);
+                        }
 
-                        snprintf(mensagem, sizeof(mensagem), "Golpe acertou Azh'Khar!");
+                        snprintf(
+                            mensagem, sizeof(mensagem),
+                            "Golpe acertou Azh'Khar!"
+                        );
                         mensagemTempo = 1.3f;
 
                         if (azhkhar.vida <= 0.0f) {
                             azhkhar.derrotado = true;
-                            snprintf(mensagem, sizeof(mensagem), "O eco foi libertado. Azh'Khar caiu.");
+                            snprintf(
+                                mensagem, sizeof(mensagem),
+                                "O eco foi libertado. Azh'Khar caiu."
+                            );
                             mensagemTempo = 6.0f;
                         }
                     } else {
-                        snprintf(mensagem, sizeof(mensagem), "Vire-se para o colosso antes de atacar.");
+                        snprintf(
+                            mensagem, sizeof(mensagem),
+                            "Vire-se para o colosso antes de atacar."
+                        );
                         mensagemTempo = 1.2f;
                     }
                 } else {
-                    snprintf(mensagem, sizeof(mensagem), "O golpe cortou o ar.");
+                    snprintf(
+                        mensagem, sizeof(mensagem),
+                        "O golpe cortou o ar."
+                    );
                     mensagemTempo = 0.8f;
                 }
             }
 
-            // IA SIMPLES DO COLOSSO: aproxima-se e golpeia em area.
-            if (azhkhar.despertado && !azhkhar.derrotado && azhkhar.tempoDespertar <= 0.0f) {
-                Vector3 paraJogador = Vector3Subtract(jogador.posicao, azhkhar.posicao);
-                float distancia = DistanciaXZ(jogador.posicao, azhkhar.posicao);
+            // IA DE AZH'KHAR: tres padroes e segunda fase.
+            if (azhkhar.despertado && !azhkhar.derrotado &&
+                azhkhar.tempoDespertar <= 0.0f) {
 
-                if (distancia > 5.0f) {
-                    Vector3 direcao = Vector3Normalize({paraJogador.x, 0.0f, paraJogador.z});
-                    azhkhar.posicao.x += direcao.x * 1.0f * dt;
-                    azhkhar.posicao.z += direcao.z * 1.0f * dt;
+                Vector3 paraJogador = Vector3Subtract(
+                    jogador.posicao, azhkhar.posicao
+                );
+                float distancia = DistanciaXZ(
+                    jogador.posicao, azhkhar.posicao
+                );
+                bool segundaFase =
+                    azhkhar.vida <= VIDA_MAX_COLOSSO * 0.5f;
+
+                // Aproximacao com velocidade crescente na segunda fase.
+                if (distancia > 4.0f && azhkhar.tempoAtaque <= 0.0f) {
+                    Vector3 direcao = Vector3Normalize(
+                        {paraJogador.x, 0.0f, paraJogador.z}
+                    );
+                    float velocidade = segundaFase ? 1.65f : 1.0f;
+                    azhkhar.posicao.x += direcao.x * velocidade * dt;
+                    azhkhar.posicao.z += direcao.z * velocidade * dt;
                 }
 
-                if (distancia < 6.0f && azhkhar.recargaAtaque <= 0.0f) {
-                    azhkhar.tempoAtaque = 0.9f;
-                    azhkhar.recargaAtaque = 2.8f;
-                    snprintf(mensagem, sizeof(mensagem), "Azh'Khar prepara um golpe pesado!");
+                // Selecionar o proximo padrao de ataque.
+                if (distancia < 9.0f &&
+                    azhkhar.recargaAtaque <= 0.0f &&
+                    azhkhar.tempoAtaque <= 0.0f) {
+
+                    azhkhar.tipoAtaque = GetRandomValue(
+                        0, segundaFase ? 2 : 1
+                    );
+                    azhkhar.ataqueResolvido = false;
+
+                    if (azhkhar.tipoAtaque == 0) {
+                        azhkhar.tempoAtaque = 0.95f;
+                        snprintf(mensagem, sizeof(mensagem),
+                                 "Azh'Khar prepara um golpe pesado!");
+                    } else if (azhkhar.tipoAtaque == 1) {
+                        azhkhar.tempoAtaque = 1.15f;
+                        snprintf(mensagem, sizeof(mensagem),
+                                 "Azh'Khar prepara uma investida!");
+                    } else {
+                        azhkhar.tempoAtaque = 0.85f;
+                        snprintf(mensagem, sizeof(mensagem),
+                                 "Azh'Khar concentra energia no solo!");
+                    }
+
+                    azhkhar.recargaAtaque =
+                        segundaFase ? 1.9f : 2.8f;
                     mensagemTempo = 1.4f;
                 }
 
-                if (azhkhar.tempoAtaque > 0.0f &&
-                    azhkhar.tempoAtaque < 0.18f &&
-                    distancia < 4.5f &&
-                    jogador.invulnerabilidade <= 0.0f) {
+                // ECLIPSE_COMBATE_FEEDBACK_V2: avanco visivel da investida.
+                if (azhkhar.tipoAtaque == 1 &&
+                    azhkhar.tempoAtaque > 0.20f &&
+                    !azhkhar.ataqueResolvido) {
+                    Vector3 direcaoInvestida = Vector3Normalize(
+                        {paraJogador.x, 0.0f, paraJogador.z}
+                    );
+                    azhkhar.posicao.x += direcaoInvestida.x * 4.0f * dt;
+                    azhkhar.posicao.z += direcaoInvestida.z * 4.0f * dt;
+                }
+                // Aplicar dano uma unica vez por ataque.
+                float instanteImpacto =
+                    azhkhar.tipoAtaque == 0 ? 0.18f :
+                    azhkhar.tipoAtaque == 1 ? 0.15f : 0.12f;
 
-                    jogador.vida = fmaxf(0.0f, jogador.vida - 24.0f);
-                    jogador.invulnerabilidade = 0.9f;
-                    snprintf(mensagem, sizeof(mensagem), "Voce recebeu um golpe do colosso!");
-                    mensagemTempo = 1.6f;
+                if (azhkhar.tempoAtaque > 0.0f &&
+                    azhkhar.tempoAtaque <= instanteImpacto &&
+                    !azhkhar.ataqueResolvido) {
+
+                    azhkhar.ataqueResolvido = true;
+
+                    Vector3 direcao = Vector3Normalize(
+                        {paraJogador.x, 0.0f, paraJogador.z}
+                    );
+
+                    float alcance = 4.5f;
+                    float dano = segundaFase ? 30.0f : 24.0f;
+
+                    if (azhkhar.tipoAtaque == 1) {
+                        azhkhar.posicao.x += direcao.x * 3.0f;
+                        azhkhar.posicao.z += direcao.z * 3.0f;
+                        alcance = 3.2f;
+                        dano = segundaFase ? 34.0f : 28.0f;
+                    } else if (azhkhar.tipoAtaque == 2) {
+                        alcance = 7.5f;
+                        dano = segundaFase ? 36.0f : 30.0f;
+                    }
+
+                    float distanciaImpacto = DistanciaXZ(
+                        jogador.posicao, azhkhar.posicao
+                    );
+
+                    if (distanciaImpacto < alcance &&
+                        jogador.invulnerabilidade <= 0.0f) {
+
+                        jogador.vida = fmaxf(
+                            0.0f, jogador.vida - dano
+                        );
+                        jogador.invulnerabilidade = 0.9f;
+
+                        snprintf(mensagem, sizeof(mensagem),
+                                 "O golpe de Azh'Khar atingiu voce!");
+                        mensagemTempo = 1.6f;
+                    } else {
+                        snprintf(mensagem, sizeof(mensagem),
+                                 "Voce escapou do ataque de Azh'Khar!");
+                        mensagemTempo = 1.1f;
+                    }
                 }
             }
 
@@ -1050,10 +1402,21 @@ int main() {
         BeginDrawing();
         ClearBackground(ceu);
 
-        BeginMode3D(camera);
+        Camera3D cameraRender = camera;
+        if (tempoTremorCamera > 0.0f) {
+            float intensidadeTremor = 0.20f * (tempoTremorCamera / 0.24f);
+            float tremorX = (float)GetRandomValue(-100, 100) / 100.0f * intensidadeTremor;
+            float tremorY = (float)GetRandomValue(-100, 100) / 100.0f * intensidadeTremor;
+            cameraRender.position.x += tremorX;
+            cameraRender.position.y += tremorY;
+            cameraRender.target.x += tremorX;
+            cameraRender.target.y += tremorY;
+        }
+        BeginMode3D(cameraRender);
 
         DesenharAtmosfera({0.0f, 0.0f, 0.0f}, jogador.posicao, tempo);
         DesenharChao();
+        DesenharAmbiente(assets);
         DesenharRuinas();
         DesenharColosso(azhkhar, tempo, assets);
         DesenharJogador(jogador, tempo, assets);
